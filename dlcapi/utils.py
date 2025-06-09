@@ -64,7 +64,7 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
             video_adapt_batch_size=4,
             scale_list=[],
             pcutoff=pcutoff,
-            destfolder=tmpdir  # CRITICAL: Ensure outputs go to tmpdir
+            dest_folder=tmpdir,  # Use tmpdir for outputs
         )
         
         # 4. Find labeled video file (flexible naming)
