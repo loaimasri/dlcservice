@@ -45,8 +45,10 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def run_dlc_pipeline(supabase_object_name: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
-    
     local_input_path = os.path.join(DOWNLOAD_DIR, supabase_object_name)
+
+    # Create subdirectory if needed
+    os.makedirs(os.path.dirname(local_input_path), exist_ok=True)
 
     # 1. Download input video
     download_from_supabase(supabase_object_name, local_input_path)
@@ -67,12 +69,12 @@ def run_dlc_pipeline(supabase_object_name: str, model_name: str = "superanimal_q
     # 3. Determine output labeled file path
     video_base = os.path.splitext(local_input_path)[0]
     labeled_filename = f"{os.path.basename(video_base)}_{model_name}_hrnetw32_labeled_after_adapt.mp4"
+    original_output_path = os.path.join(os.path.dirname(local_input_path), labeled_filename)
     labeled_path = os.path.join(OUTPUT_DIR, labeled_filename)
 
-    # Move the labeled file to OUTPUT_DIR
-    original_output_path = os.path.join(DOWNLOAD_DIR, labeled_filename)
     if not os.path.exists(original_output_path):
         raise Exception("Labeled video file not found after processing.")
+
     os.rename(original_output_path, labeled_path)
 
     # 4. Upload labeled video
