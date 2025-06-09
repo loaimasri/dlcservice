@@ -45,43 +45,65 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
     with tempfile.TemporaryDirectory() as tmpdir:
         input_filename = os.path.basename(object_path)
         local_input_path = os.path.join(tmpdir, input_filename)
-
+        
         # 1. Download input video
         download_from_supabase(object_path, local_input_path)
-
-        # 2. Run DeepLabCut
+        
+        # 2. Prepare video extension (without dot)
+        ext = os.path.splitext(local_input_path)[1]
+        videotype = ext[1:] if ext else 'mp4'  # Handle no-extension case
+        
+        # 3. Run DeepLabCut with explicit output directory
         deeplabcut.video_inference_superanimal(
             [local_input_path],
             model_name,
-            model_name="hrnet_w32",
+            modelname="hrnet_w32",
             detector_name="fasterrcnn_resnet50_fpn_v2",
-            videotype=os.path.splitext(local_input_path)[1],
+            videotype=videotype,
             video_adapt=True,
             video_adapt_batch_size=4,
             scale_list=[],
             pcutoff=pcutoff,
+            destfolder=tmpdir  # CRITICAL: Ensure outputs go to tmpdir
         )
-
-        # 3. Determine output labeled file path
-        video_base = os.path.splitext(local_input_path)[0]
         
-        # search for the labeled video file
-        labeled_files = [f for f in os.listdir(tmpdir) if f.startswith(os.path.basename(video_base)) and f.endswith("_labeled.mp4")]
-        labeled_path = os.path.join(tmpdir, labeled_files[0]) if labeled_files else None
+        # 4. Find labeled video file (flexible naming)
+        base_name = os.path.splitext(input_filename)[0]
+        
+        # Possible filename patterns
+        possible_patterns = [
+            f"{base_name}_{model_name}_labeled.mp4",  # With model name
+            f"{base_name}_labeled.mp4",              # Without model name
+            f"{base_name}_{model_name}_labeled.avi",  # AVI format
+            f"{base_name}_labeled.avi"
+        ]
+        
+        labeled_path = None
+        for pattern in possible_patterns:
+            candidate = os.path.join(tmpdir, pattern)
+            if os.path.exists(candidate):
+                labeled_path = candidate
+                break
+        
+        # Fallback: Search for any labeled video
+        if not labeled_path:
+            labeled_files = [f for f in os.listdir(tmpdir) 
+                            if "labeled" in f and (f.endswith(".mp4") or f.endswith(".avi"))]
+            if labeled_files:
+                labeled_path = os.path.join(tmpdir, labeled_files[0])
+        
         if not labeled_path:
             raise Exception("Labeled video file not found after processing.")
-        output_name = os.path.basename(labeled_path)
-        output_dest_path = object_path.rsplit("/", 1)[0] + "/" + output_name
-
-        # 4. Upload labeled video
+        
+        # 5. Upload and return results
+        output_dest_path = f"{object_path.rsplit('/', 1)[0]}/{os.path.basename(labeled_path)}"
         success = upload_to_supabase(labeled_path, output_dest_path)
-
-        # 5. Return results
+        
         return {
             "message": "Video processed and uploaded",
             "filename": input_filename,
             "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
-            "mime_type": "video/mp4",
+            "mime_type": "video/mp4" if labeled_path.endswith(".mp4") else "video/avi",
             "file_size": os.path.getsize(labeled_path),
             "uploaded": success
         }
