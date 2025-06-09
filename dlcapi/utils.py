@@ -57,7 +57,7 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
         deeplabcut.video_inference_superanimal(
             [local_input_path],
             model_name,
-            modelname="hrnet_w32",
+            model_name="hrnet_w32",
             detector_name="fasterrcnn_resnet50_fpn_v2",
             videotype=videotype,
             video_adapt=True,
