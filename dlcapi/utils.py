@@ -38,50 +38,57 @@ def upload_to_supabase(file_path: str, dest_path: str) -> bool:
         )
     return res.ok
 
+DOWNLOAD_DIR = "./downloads"
+OUTPUT_DIR = "./outputs"
+
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
     parsed = urlparse(supabase_object_url)
     object_path = parsed.path.replace("/storage/v1/object/", "", 1)
+    
+    input_filename = os.path.basename(object_path)
+    local_input_path = os.path.join(DOWNLOAD_DIR, input_filename)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        input_filename = os.path.basename(object_path)
-        local_input_path = os.path.join(tmpdir, input_filename)
+    # 1. Download input video
+    download_from_supabase(object_path, local_input_path)
 
-        # 1. Download input video
-        download_from_supabase(object_path, local_input_path)
+    # 2. Run DeepLabCut
+    deeplabcut.video_inference_superanimal(
+        [local_input_path],
+        model_name,
+        model_name="hrnet_w32",
+        detector_name="fasterrcnn_resnet50_fpn_v2",
+        videotype=os.path.splitext(local_input_path)[1],
+        video_adapt=True,
+        video_adapt_batch_size=4,
+        scale_list=[],
+        pcutoff=pcutoff,
+    )
 
-        # 2. Run DeepLabCut
-        deeplabcut.video_inference_superanimal(
-            [local_input_path],
-            model_name,
-            model_name="hrnet_w32",
-            detector_name="fasterrcnn_resnet50_fpn_v2",
-            videotype=os.path.splitext(local_input_path)[1],
-            video_adapt=True,
-            video_adapt_batch_size=4,
-            scale_list=[],
-            pcutoff=pcutoff,
-        )
+    # 3. Determine output labeled file path
+    video_base = os.path.splitext(local_input_path)[0]
+    labeled_filename = f"{os.path.basename(video_base)}_{model_name}_hrnetw32_labeled_after_adapt.mp4"
+    labeled_path = os.path.join(OUTPUT_DIR, labeled_filename)
 
-        # 3. Determine output labeled file path
-        video_base = os.path.splitext(local_input_path)[0]
-        
-        # search for the labeled video file
-        labeled_files = [f for f in os.listdir(tmpdir) if f.startswith(os.path.basename(video_base)) and f.endswith("_labeled.mp4")]
-        labeled_path = os.path.join(tmpdir, labeled_files[0]) if labeled_files else None
-        if not labeled_path:
-            raise Exception("Labeled video file not found after processing.")
-        output_name = os.path.basename(labeled_path)
-        output_dest_path = object_path.rsplit("/", 1)[0] + "/" + output_name
+    # Move the labeled file to OUTPUT_DIR
+    original_output_path = os.path.join(DOWNLOAD_DIR, labeled_filename)
+    if not os.path.exists(original_output_path):
+        raise Exception("Labeled video file not found after processing.")
+    os.rename(original_output_path, labeled_path)
 
-        # 4. Upload labeled video
-        success = upload_to_supabase(labeled_path, output_dest_path)
+    output_dest_path = object_path.rsplit("/", 1)[0] + "/" + labeled_filename
 
-        # 5. Return results
-        return {
-            "message": "Video processed and uploaded",
-            "filename": input_filename,
-            "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
-            "mime_type": "video/mp4",
-            "file_size": os.path.getsize(labeled_path),
-            "uploaded": success
-        }
+    # 4. Upload labeled video
+    success = upload_to_supabase(labeled_path, output_dest_path)
+
+    # 5. Return results
+    return {
+        "message": "Video processed and uploaded",
+        "filename": input_filename,
+        "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
+        "mime_type": "video/mp4",
+        "file_size": os.path.getsize(labeled_path),
+        "uploaded": success
+    }
