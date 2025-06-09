@@ -13,6 +13,7 @@ def run_dlc_pipeline(video_rel_path: str, model_name: str = "superanimal_quadrup
     detector_name="fasterrcnn_resnet50_fpn_v2",
     videotype=videotype,
     video_adapt=True,
+    video_adapt_batch_size=4,
     scale_list=scale_list,
     pcutoff=pcutoff,
 )
