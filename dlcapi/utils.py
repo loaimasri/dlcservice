@@ -64,7 +64,12 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
 
         # 3. Determine output labeled file path
         video_base = os.path.splitext(local_input_path)[0]
-        labeled_path = f"{video_base}_{model_name}_hrnetw32_labeled_after_adapt.mp4"
+        
+        # search for the labeled video file
+        labeled_files = [f for f in os.listdir(tmpdir) if f.startswith(os.path.basename(video_base)) and f.endswith("_labeled.mp4")]
+        labeled_path = os.path.join(tmpdir, labeled_files[0]) if labeled_files else None
+        if not labeled_path:
+            raise Exception("Labeled video file not found after processing.")
         output_name = os.path.basename(labeled_path)
         output_dest_path = object_path.rsplit("/", 1)[0] + "/" + output_name
 
@@ -76,6 +81,7 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
             "message": "Video processed and uploaded",
             "filename": input_filename,
             "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
+            "mime_type": "video/mp4",
             "file_size": os.path.getsize(labeled_path),
             "uploaded": success
         }
