@@ -98,11 +98,12 @@ def run_dlc_pipeline(file_name:str,supabase_object_url: str, model_name: str = "
         # 5. Upload and return results
         output_dest_path = f"{object_path.rsplit('/', 1)[0]}/{os.path.basename(labeled_path)}"
         success = upload_to_supabase(labeled_path, output_dest_path)
+        print(f"Uploaded labeled video to {output_dest_path}: {success}")
         
         return {
             "message": "Video processed and uploaded",
             "filename": file_name,
-            "file_path": f"horse-videos-processed/{output_dest_path}",
+            "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
             "mime_type": "video/mp4" if labeled_path.endswith(".mp4") else "video/avi",
             "file_size": os.path.getsize(labeled_path),
             "uploaded": success
