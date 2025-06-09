@@ -44,15 +44,13 @@ OUTPUT_DIR = "./outputs"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
-    parsed = urlparse(supabase_object_url)
-    object_path = parsed.path.replace("/storage/v1/object/", "", 1)
+def run_dlc_pipeline(supabase_object_path: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
     
-    input_filename = os.path.basename(object_path)
+    input_filename = os.path.basename(supabase_object_path)
     local_input_path = os.path.join(DOWNLOAD_DIR, input_filename)
 
     # 1. Download input video
-    download_from_supabase(object_path, local_input_path)
+    download_from_supabase(supabase_object_path, local_input_path)
 
     # 2. Run DeepLabCut
     deeplabcut.video_inference_superanimal(
@@ -78,16 +76,14 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
         raise Exception("Labeled video file not found after processing.")
     os.rename(original_output_path, labeled_path)
 
-    output_dest_path = object_path.rsplit("/", 1)[0] + "/" + labeled_filename
-
     # 4. Upload labeled video
-    success = upload_to_supabase(labeled_path, output_dest_path)
+    success = upload_to_supabase(labeled_path, labeled_filename)
 
     # 5. Return results
     return {
         "message": "Video processed and uploaded",
         "filename": input_filename,
-        "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
+        "file_path": f"/{SUPABASE_BUCKET}/{labeled_filename}",
         "mime_type": "video/mp4",
         "file_size": os.path.getsize(labeled_path),
         "uploaded": success
