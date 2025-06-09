@@ -38,54 +38,47 @@ def upload_to_supabase(file_path: str, dest_path: str) -> bool:
         )
     return res.ok
 
-DOWNLOAD_DIR = "./downloads"
-OUTPUT_DIR = "./outputs"
+def run_dlc_pipeline(supabase_object_path: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
 
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_filename = os.path.basename(supabase_object_path)
+        local_input_path = os.path.join(tmpdir, input_filename)
 
-def run_dlc_pipeline(supabase_object_name: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
-    local_input_path = os.path.join(DOWNLOAD_DIR, supabase_object_name)
+        # 1. Download input video
+        download_from_supabase(supabase_object_path, local_input_path)
 
-    # Create subdirectory if needed
-    os.makedirs(os.path.dirname(local_input_path), exist_ok=True)
+        # 2. Run DeepLabCut
+        deeplabcut.video_inference_superanimal(
+            [local_input_path],
+            model_name,
+            model_name="hrnet_w32",
+            detector_name="fasterrcnn_resnet50_fpn_v2",
+            videotype=os.path.splitext(local_input_path)[1],
+            video_adapt=True,
+            video_adapt_batch_size=4,
+            scale_list=[],
+            pcutoff=pcutoff,
+        )
 
-    # 1. Download input video
-    download_from_supabase(supabase_object_name, local_input_path)
+        # 3. Determine output labeled file path
+        video_base = os.path.splitext(local_input_path)[0]
+        
+        # search for the labeled video file
+        labeled_files = [f for f in os.listdir(tmpdir) if f.startswith(os.path.basename(video_base)) and f.endswith("_labeled.mp4")]
+        labeled_path = os.path.join(tmpdir, labeled_files[0]) if labeled_files else None
+        if not labeled_path:
+            raise Exception("Labeled video file not found after processing.")
+        output_name = os.path.basename(labeled_path)
 
-    # 2. Run DeepLabCut
-    deeplabcut.video_inference_superanimal(
-        [local_input_path],
-        model_name,
-        model_name="hrnet_w32",
-        detector_name="fasterrcnn_resnet50_fpn_v2",
-        videotype=os.path.splitext(local_input_path)[1],
-        video_adapt=True,
-        video_adapt_batch_size=4,
-        scale_list=[],
-        pcutoff=pcutoff,
-    )
+        # 4. Upload labeled video
+        success = upload_to_supabase(labeled_path, output_name)
 
-    # 3. Determine output labeled file path
-    video_base = os.path.splitext(local_input_path)[0]
-    labeled_filename = f"{os.path.basename(video_base)}_{model_name}_hrnetw32_labeled_after_adapt.mp4"
-    original_output_path = os.path.join(os.path.dirname(local_input_path), labeled_filename)
-    labeled_path = os.path.join(OUTPUT_DIR, labeled_filename)
-
-    if not os.path.exists(original_output_path):
-        raise Exception("Labeled video file not found after processing.")
-
-    os.rename(original_output_path, labeled_path)
-
-    # 4. Upload labeled video
-    success = upload_to_supabase(labeled_path, labeled_filename)
-
-    # 5. Return results
-    return {
-        "message": "Video processed and uploaded",
-        "filename": supabase_object_name,
-        "file_path": f"/{SUPABASE_BUCKET}/{labeled_filename}",
-        "mime_type": "video/mp4",
-        "file_size": os.path.getsize(labeled_path),
-        "uploaded": success
-    }
+        # 5. Return results
+        return {
+            "message": "Video processed and uploaded",
+            "filename": input_filename,
+            "file_path": f"/{SUPABASE_BUCKET}/{output_name}",
+            "mime_type": "video/mp4",
+            "file_size": os.path.getsize(labeled_path),
+            "uploaded": success
+        }
