@@ -44,13 +44,12 @@ OUTPUT_DIR = "./outputs"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def run_dlc_pipeline(supabase_object_path: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
+def run_dlc_pipeline(supabase_object_name: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
     
-    input_filename = os.path.basename(supabase_object_path)
-    local_input_path = os.path.join(DOWNLOAD_DIR, input_filename)
+    local_input_path = os.path.join(DOWNLOAD_DIR, supabase_object_name)
 
     # 1. Download input video
-    download_from_supabase(supabase_object_path, local_input_path)
+    download_from_supabase(supabase_object_name, local_input_path)
 
     # 2. Run DeepLabCut
     deeplabcut.video_inference_superanimal(
@@ -82,7 +81,7 @@ def run_dlc_pipeline(supabase_object_path: str, model_name: str = "superanimal_q
     # 5. Return results
     return {
         "message": "Video processed and uploaded",
-        "filename": input_filename,
+        "filename": supabase_object_name,
         "file_path": f"/{SUPABASE_BUCKET}/{labeled_filename}",
         "mime_type": "video/mp4",
         "file_size": os.path.getsize(labeled_path),
