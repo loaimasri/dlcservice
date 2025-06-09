@@ -38,7 +38,7 @@ def upload_to_supabase(file_path: str, dest_path: str) -> bool:
         )
     return res.ok
 
-def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
+def run_dlc_pipeline(file_name:str,supabase_object_url: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
     parsed = urlparse(supabase_object_url)
     object_path = parsed.path.replace("/storage/v1/object/", "", 1)
 
@@ -101,7 +101,7 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
         
         return {
             "message": "Video processed and uploaded",
-            "filename": input_filename,
+            "filename": file_name,
             "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
             "mime_type": "video/mp4" if labeled_path.endswith(".mp4") else "video/avi",
             "file_size": os.path.getsize(labeled_path),
