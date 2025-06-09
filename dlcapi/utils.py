@@ -2,7 +2,6 @@ import os
 import tempfile
 import requests
 import deeplabcut
-from urllib.parse import urlparse
 
 SUPABASE_URL = "https://nidduqpsocsudhgdwlom.supabase.co"
 SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGR1cXBzb2NzdWRoZ2R3bG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0NzU4ODksImV4cCI6MjA2NTA1MTg4OX0.519vPiblwbD-wIhBY2VcpGfg-IUrGrkaAIG8tbcV9cs"
