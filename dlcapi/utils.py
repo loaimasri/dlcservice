@@ -2,6 +2,7 @@ import os
 import tempfile
 import requests
 import deeplabcut
+from urllib.parse import urlparse
 
 SUPABASE_URL = "https://nidduqpsocsudhgdwlom.supabase.co"
 SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGR1cXBzb2NzdWRoZ2R3bG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0NzU4ODksImV4cCI6MjA2NTA1MTg4OX0.519vPiblwbD-wIhBY2VcpGfg-IUrGrkaAIG8tbcV9cs"
@@ -37,14 +38,16 @@ def upload_to_supabase(file_path: str, dest_path: str) -> bool:
         )
     return res.ok
 
-def run_dlc_pipeline(supabase_object_path: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
+def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_quadruped", pcutoff: float = 0.15):
+    parsed = urlparse(supabase_object_url)
+    object_path = parsed.path.replace("/storage/v1/object/", "", 1)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        input_filename = os.path.basename(supabase_object_path)
+        input_filename = os.path.basename(object_path)
         local_input_path = os.path.join(tmpdir, input_filename)
 
         # 1. Download input video
-        download_from_supabase(supabase_object_path, local_input_path)
+        download_from_supabase(object_path, local_input_path)
 
         # 2. Run DeepLabCut
         deeplabcut.video_inference_superanimal(
@@ -68,15 +71,16 @@ def run_dlc_pipeline(supabase_object_path: str, model_name: str = "superanimal_q
         if not labeled_path:
             raise Exception("Labeled video file not found after processing.")
         output_name = os.path.basename(labeled_path)
+        output_dest_path = object_path.rsplit("/", 1)[0] + "/" + output_name
 
         # 4. Upload labeled video
-        success = upload_to_supabase(labeled_path, output_name)
+        success = upload_to_supabase(labeled_path, output_dest_path)
 
         # 5. Return results
         return {
             "message": "Video processed and uploaded",
             "filename": input_filename,
-            "file_path": f"/{SUPABASE_BUCKET}/{output_name}",
+            "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
             "mime_type": "video/mp4",
             "file_size": os.path.getsize(labeled_path),
             "uploaded": success
