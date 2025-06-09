@@ -76,6 +76,7 @@ def run_dlc_pipeline(supabase_object_url: str, model_name: str = "superanimal_qu
             "message": "Video processed and uploaded",
             "filename": input_filename,
             "file_path": f"/{SUPABASE_BUCKET}/{output_dest_path}",
+            "mime_type": "video/mp4",
             "file_size": os.path.getsize(labeled_path),
             "uploaded": success
         }
