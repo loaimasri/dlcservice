@@ -31,6 +31,18 @@
    python manage.py runserver
    ```
 
+5. **For Production**: Use supervisord to run the service in production mode:
+
+   ```bash
+   supervisord -c supervisord.conf
+   ```
+
+   - Note that you need to have `supervisord` installed and configured properly.
+
+   ```sh
+   pip install supervisor
+   ```
+
 ### Note
 
 When you trying to deploy the service, you should increse the timeout in the `gunicorn` command to avoid timeout issues, for example:
