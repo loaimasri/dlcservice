@@ -36,5 +36,5 @@
 When you trying to deploy the service, you should increse the timeout in the `gunicorn` command to avoid timeout issues, for example:
 
 ```bash
-gunicorn dlcservice.wsgi:application --timeout 600 # where 600 is the timeout in seconds
+gunicorn dlcservice.wsgi:application --bind 0.0.0.0:8000 --timeout 600
 ```
